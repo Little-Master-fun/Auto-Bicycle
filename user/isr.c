@@ -38,6 +38,7 @@
 #include "driver_imu.h"
 #include "balance_control.h"
 #include "ui_control.h"
+#include "driver_odrive.h"
 
 // 外部变量声明
 extern uint8 system_enable;
@@ -66,9 +67,18 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
     ui_data.target_angle = balance_state.target_angle;
     ui_data.system_status = system_enable ? 0 : 1;  // 0=运行，1=停止
     
-    // 获取PID参数
-    balance_control_get_pid_params(&ui_data.angle_kp, &ui_data.velocity_kp, &ui_data.velocity_ki);
+    // 获取PID参数（完整6个参数）
+    balance_control_get_pid_params_full(&ui_data.angle_kp, &ui_data.angle_ki, &ui_data.angle_kd,
+                                         &ui_data.velocity_kp, &ui_data.velocity_ki, &ui_data.velocity_kd);
     ui_data.selected_param = param_index;
+    
+    // 获取轮速（使用新的API）
+    float speed;
+    if (odrive_get_speed(&speed)) {
+        ui_data.wheel_speed_rps = speed;
+    } else {
+        ui_data.wheel_speed_rps = 0.0f;  // 无有效数据时显示0
+    }
     
     ui_control_update(&ui_data);
 }

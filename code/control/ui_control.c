@@ -144,6 +144,12 @@ void ui_control_update(const ui_display_data_t *data)
     ips200_show_string(5, y, "Out:");
     ips200_show_float(45, y, data->control_output, 1, 3);
     ips200_show_string(100, y, "Nm");
+    y += 16;
+
+    // ========== 显示轮速 ==========
+    ips200_show_string(5, y, "Spd:");
+    ips200_show_float(45, y, data->wheel_speed_rps, 2, 2);
+    ips200_show_string(100, y, "r/s");
     y += 18;
 
     // ========== 显示PID参数 ==========
@@ -151,9 +157,9 @@ void ui_control_update(const ui_display_data_t *data)
     ips200_show_string(5, y, "-- PID Params --");
     y += 16;
 
-    // 角度Kp
+    // 角度Kp (0)
     if (data->selected_param == 0) {
-        ips200_set_color(RGB565_GREEN, RGB565_BLACK);  // 选中显示绿色
+        ips200_set_color(RGB565_GREEN, RGB565_BLACK);
         ips200_show_string(5, y, ">");
     } else {
         ips200_set_color(RGB565_WHITE, RGB565_BLACK);
@@ -161,10 +167,34 @@ void ui_control_update(const ui_display_data_t *data)
     }
     ips200_show_string(15, y, "AKp:");
     ips200_show_float(50, y, data->angle_kp, 1, 2);
-    y += 16;
+    y += 14;
 
-    // 速度Kp
+    // 角度Ki (1)
     if (data->selected_param == 1) {
+        ips200_set_color(RGB565_GREEN, RGB565_BLACK);
+        ips200_show_string(5, y, ">");
+    } else {
+        ips200_set_color(RGB565_WHITE, RGB565_BLACK);
+        ips200_show_string(5, y, " ");
+    }
+    ips200_show_string(15, y, "AKi:");
+    ips200_show_float(50, y, data->angle_ki, 1, 2);
+    y += 14;
+
+    // 角度Kd (2)
+    if (data->selected_param == 2) {
+        ips200_set_color(RGB565_GREEN, RGB565_BLACK);
+        ips200_show_string(5, y, ">");
+    } else {
+        ips200_set_color(RGB565_WHITE, RGB565_BLACK);
+        ips200_show_string(5, y, " ");
+    }
+    ips200_show_string(15, y, "AKd:");
+    ips200_show_float(50, y, data->angle_kd, 1, 2);
+    y += 14;
+
+    // 速度Kp (3)
+    if (data->selected_param == 3) {
         ips200_set_color(RGB565_GREEN, RGB565_BLACK);
         ips200_show_string(5, y, ">");
     } else {
@@ -173,10 +203,10 @@ void ui_control_update(const ui_display_data_t *data)
     }
     ips200_show_string(15, y, "VKp:");
     ips200_show_float(50, y, data->velocity_kp, 2, 2);
-    y += 16;
+    y += 14;
 
-    // 速度Ki
-    if (data->selected_param == 2) {
+    // 速度Ki (4)
+    if (data->selected_param == 4) {
         ips200_set_color(RGB565_GREEN, RGB565_BLACK);
         ips200_show_string(5, y, ">");
     } else {
@@ -185,7 +215,19 @@ void ui_control_update(const ui_display_data_t *data)
     }
     ips200_show_string(15, y, "VKi:");
     ips200_show_float(50, y, data->velocity_ki, 1, 3);
-    y += 18;
+    y += 14;
+
+    // 速度Kd (5)
+    if (data->selected_param == 5) {
+        ips200_set_color(RGB565_GREEN, RGB565_BLACK);
+        ips200_show_string(5, y, ">");
+    } else {
+        ips200_set_color(RGB565_WHITE, RGB565_BLACK);
+        ips200_show_string(5, y, " ");
+    }
+    ips200_show_string(15, y, "VKd:");
+    ips200_show_float(50, y, data->velocity_kd, 1, 2);
+    y += 16;
 
     // ========== 显示操作提示 ==========
     ips200_set_color(RGB565_GRAY, RGB565_BLACK);

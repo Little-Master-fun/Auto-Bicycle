@@ -390,8 +390,22 @@ uint8 balance_control_get_enable(void)
 void balance_control_adjust_angle_kp(float delta)
 {
     angle_pid.kp += delta;
-    if (angle_pid.kp < 0.0f) angle_pid.kp = 0.0f;
+    if (angle_pid.kp < -10.0f) angle_pid.kp = -10.0f;
     if (angle_pid.kp > 10.0f) angle_pid.kp = 10.0f;  // 限制最大值
+}
+
+void balance_control_adjust_angle_ki(float delta)
+{
+    angle_pid.ki += delta;
+    if (angle_pid.ki < -10.0f) angle_pid.ki = -10.0f;
+    if (angle_pid.ki > 5.0f) angle_pid.ki = 5.0f;  // 限制最大值
+}
+
+void balance_control_adjust_angle_kd(float delta)
+{
+    angle_pid.kd += delta;
+    if (angle_pid.kd < -10.0f) angle_pid.kd = -10.0f;
+    if (angle_pid.kd > 2.0f) angle_pid.kd = 2.0f;  // 限制最大值
 }
 
 void balance_control_adjust_velocity_kp(float delta)
@@ -404,8 +418,15 @@ void balance_control_adjust_velocity_kp(float delta)
 void balance_control_adjust_velocity_ki(float delta)
 {
     velocity_pid.ki += delta;
-    if (velocity_pid.ki < 0.0f) velocity_pid.ki = 0.0f;
+    if (velocity_pid.ki < -10.0f) velocity_pid.ki = -10.0f;
     if (velocity_pid.ki > 1.0f) velocity_pid.ki = 1.0f;  // 限制最大值
+}
+
+void balance_control_adjust_velocity_kd(float delta)
+{
+    velocity_pid.kd += delta;
+    if (velocity_pid.kd < -10.0f) velocity_pid.kd = -10.0f;
+    if (velocity_pid.kd > 1.0f) velocity_pid.kd = 1.0f;  // 限制最大值
 }
 
 void balance_control_get_pid_params(float *angle_kp, float *vel_kp, float *vel_ki)
@@ -413,4 +434,15 @@ void balance_control_get_pid_params(float *angle_kp, float *vel_kp, float *vel_k
     if (angle_kp) *angle_kp = angle_pid.kp;
     if (vel_kp) *vel_kp = velocity_pid.kp;
     if (vel_ki) *vel_ki = velocity_pid.ki;
+}
+
+void balance_control_get_pid_params_full(float *angle_kp, float *angle_ki, float *angle_kd,
+                                          float *vel_kp, float *vel_ki, float *vel_kd)
+{
+    if (angle_kp) *angle_kp = angle_pid.kp;
+    if (angle_ki) *angle_ki = angle_pid.ki;
+    if (angle_kd) *angle_kd = angle_pid.kd;
+    if (vel_kp) *vel_kp = velocity_pid.kp;
+    if (vel_ki) *vel_ki = velocity_pid.ki;
+    if (vel_kd) *vel_kd = velocity_pid.kd;
 }

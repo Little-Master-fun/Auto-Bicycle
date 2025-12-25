@@ -45,17 +45,31 @@ void odrive_init(void);
 void odrive_set_torque(float torque);
 
 /**
- * @brief 请求读取ODrive速度
- * @note 发送命令格式: "r axis0.encoder.vel_estimate\r\n"
- * @note 需要配合中断接收回调函数使用
+ * @brief 请求读取ODrive速度（非阻塞）
+ * @note 只负责发送命令，不等待响应
+ * @note 需要配合 odrive_poll() 在主循环中高频调用
+ * @note 建议频率：20-50Hz（每20-50ms调用一次）
  */
 void odrive_request_speed(void);
 
 /**
- * @brief 获取当前轮速（转/秒）
- * @return 当前速度（转/秒）
+ * @brief 串口收包轮询：非阻塞读取并解析UART数据
+ * @note 必须在主循环中高频调用（建议每1-2ms或每个循环都调用）
+ * @note 不要放在ISR中调用，会阻塞中断
  */
-float odrive_get_speed(void);
+void odrive_poll(void);
+
+/**
+ * @brief 获取当前轮速（转/秒）
+ * @param out_rps 输出参数，存储轮速值（turns/s）
+ * @return 1=有效数据，0=无效/未收到数据
+ * @note 使用示例：
+ *       float speed;
+ *       if (odrive_get_speed(&speed)) {
+ *           printf("Speed: %.2f r/s\n", speed);
+ *       }
+ */
+uint8 odrive_get_speed(float *out_rps);
 
 /**
  * @brief 停止ODrive电机（设置力矩为0）

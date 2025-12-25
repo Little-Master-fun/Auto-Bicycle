@@ -43,8 +43,15 @@
 
 // ========== 全局变量 ==========
 uint8 system_enable = 0;     // 系统使能标志（0=停止，1=运行）
-uint8 param_index = 0;       // 当前调节的参数索引（0=角度Kp, 1=速度Kp, 2=速度Ki）
-static const char* param_names[] = {"Angle Kp", "Velocity Kp", "Velocity Ki"};
+uint8 param_index = 0;       // 当前调节的参数索引（0~5）
+static const char* param_names[] = {
+    "Angle Kp",      // 0: 角度环比例
+    "Angle Ki",      // 1: 角度环积分
+    "Angle Kd",      // 2: 角度环微分
+    "Velocity Kp",   // 3: 速度环比例
+    "Velocity Ki",   // 4: 速度环积分
+    "Velocity Kd"    // 5: 速度环微分
+};
 
 
 #pragma section all "cpu0_dsram"
@@ -88,8 +95,20 @@ int core0_main(void)
     printf("System initialized successfully!\r\n");
     printf("Servo and Motor drivers ready.\r\n");
     
+    uint32 last_speed_request = 0;  // 上次轮速请求时间
+    
     while (TRUE)
     {
+        // 高频轮询ODrive串口数据（每个循环都调用，非阻塞）
+        odrive_poll();
+        
+        // 低频发送轮速查询请求（每50ms发一次，20Hz）
+        uint32 current_time = system_getval_ms();
+        if (current_time - last_speed_request >= 50) {
+            last_speed_request = current_time;
+            odrive_request_speed();  // 仅发送命令，不阻塞
+        }
+        
         // 按键扫描（库会自动根据period处理时序）
         key_scanner();
         
@@ -111,41 +130,50 @@ int core0_main(void)
         if (key_get_state(KEY_2) == KEY_SHORT_PRESS) {
             // K2: 切换调节参数
             key_clear_state(KEY_2);
-            param_index = (param_index + 1) % 3;
-            float angle_kp, vel_kp, vel_ki;
-            balance_control_get_pid_params(&angle_kp, &vel_kp, &vel_ki);
+            param_index = (param_index + 1) % 6;  // 现在有6个参数
+            float angle_kp, angle_ki, angle_kd, vel_kp, vel_ki, vel_kd;
+            balance_control_get_pid_params_full(&angle_kp, &angle_ki, &angle_kd, &vel_kp, &vel_ki, &vel_kd);
             printf("\r\n=== Select: %s ===\r\n", param_names[param_index]);
-            printf("Angle Kp=%.3f, Vel Kp=%.3f, Vel Ki=%.3f\r\n", angle_kp, vel_kp, vel_ki);
+            printf("Angle: Kp=%.3f Ki=%.3f Kd=%.3f\r\n", angle_kp, angle_ki, angle_kd);
+            printf("Vel:   Kp=%.3f Ki=%.4f Kd=%.3f\r\n", vel_kp, vel_ki, vel_kd);
         }
         
         if (key_get_state(KEY_3) == KEY_SHORT_PRESS) {
             // K3: 增大当前参数
             key_clear_state(KEY_3);
-            float angle_kp, vel_kp, vel_ki;
-            if (param_index == 0) {
-                balance_control_adjust_angle_kp(0.1f);   // 角度Kp步长0.1
-            } else if (param_index == 1) {
-                balance_control_adjust_velocity_kp(-0.1f);  // 速度Kp步长0.5（负数，所以减去负值=增大绝对值）
-            } else {
-                balance_control_adjust_velocity_ki(0.001f);  // 速度Ki步长0.01
+            
+            switch (param_index) {
+                case 0: balance_control_adjust_angle_kp(0.1f); break;      // 角度Kp 步长0.1
+                case 1: balance_control_adjust_angle_ki(0.05f); break;     // 角度Ki 步长0.05
+                case 2: balance_control_adjust_angle_kd(0.01f); break;     // 角度Kd 步长0.01
+                case 3: balance_control_adjust_velocity_kp(-0.1f); break;  // 速度Kp 步长0.1（负数，减负=增大绝对值）
+                case 4: balance_control_adjust_velocity_ki(0.001f); break; // 速度Ki 步长0.001
+                case 5: balance_control_adjust_velocity_kd(0.01f); break;  // 速度Kd 步长0.01
             }
-            balance_control_get_pid_params(&angle_kp, &vel_kp, &vel_ki);
-            printf("+ %s: Kp=%.3f, Vel Kp=%.3f, Ki=%.3f\r\n", param_names[param_index], angle_kp, vel_kp, vel_ki);
+            
+            float angle_kp, angle_ki, angle_kd, vel_kp, vel_ki, vel_kd;
+            balance_control_get_pid_params_full(&angle_kp, &angle_ki, &angle_kd, &vel_kp, &vel_ki, &vel_kd);
+            printf("+ %s -> A[%.2f,%.2f,%.2f] V[%.2f,%.3f,%.2f]\r\n", 
+                   param_names[param_index], angle_kp, angle_ki, angle_kd, vel_kp, vel_ki, vel_kd);
         }
         
         if (key_get_state(KEY_4) == KEY_SHORT_PRESS) {
             // K4: 减小当前参数
             key_clear_state(KEY_4);
-            float angle_kp, vel_kp, vel_ki;
-            if (param_index == 0) {
-                balance_control_adjust_angle_kp(-0.1f);  // 角度Kp步长0.1
-            } else if (param_index == 1) {
-                balance_control_adjust_velocity_kp(0.1f);   // 速度Kp步长0.5（负数，所以加正值=减小绝对值）
-            } else {
-                balance_control_adjust_velocity_ki(-0.001f); // 速度Ki步长0.01
+            
+            switch (param_index) {
+                case 0: balance_control_adjust_angle_kp(-0.1f); break;     // 角度Kp 步长0.1
+                case 1: balance_control_adjust_angle_ki(-0.05f); break;    // 角度Ki 步长0.05
+                case 2: balance_control_adjust_angle_kd(-0.01f); break;    // 角度Kd 步长0.01
+                case 3: balance_control_adjust_velocity_kp(0.1f); break;   // 速度Kp 步长0.1（负数，加正=减小绝对值）
+                case 4: balance_control_adjust_velocity_ki(-0.001f); break;// 速度Ki 步长0.001
+                case 5: balance_control_adjust_velocity_kd(-0.01f); break; // 速度Kd 步长0.01
             }
-            balance_control_get_pid_params(&angle_kp, &vel_kp, &vel_ki);
-            printf("- %s: Kp=%.3f, Vel Kp=%.3f, Ki=%.3f\r\n", param_names[param_index], angle_kp, vel_kp, vel_ki);
+            
+            float angle_kp, angle_ki, angle_kd, vel_kp, vel_ki, vel_kd;
+            balance_control_get_pid_params_full(&angle_kp, &angle_ki, &angle_kd, &vel_kp, &vel_ki, &vel_kd);
+            printf("- %s -> A[%.2f,%.2f,%.2f] V[%.2f,%.3f,%.2f]\r\n", 
+                   param_names[param_index], angle_kp, angle_ki, angle_kd, vel_kp, vel_ki, vel_kd);
         }
         
         system_delay_ms(10);  // 10ms扫描周期

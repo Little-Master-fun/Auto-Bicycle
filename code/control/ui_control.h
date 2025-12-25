@@ -36,9 +36,13 @@ typedef struct {
     float target_angle;         // 目标角度（度）
     // PID参数
     float angle_kp;             // 角度环Kp
+    float angle_ki;             // 角度环Ki
+    float angle_kd;             // 角度环Kd
     float velocity_kp;          // 速度环Kp
     float velocity_ki;          // 速度环Ki
-    uint8 selected_param;       // 当前选中的参数（0=角度Kp, 1=速度Kp, 2=速度Ki）
+    float velocity_kd;          // 速度环Kd
+    uint8 selected_param;       // 当前选中的参数（0~5）
+    float wheel_speed_rps;      // 轮速（转/秒）
 } ui_display_data_t;
 
 // ========== 外部变量声明 ==========
