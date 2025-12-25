@@ -1,0 +1,96 @@
+# AURIX TC387 Embedded Development Project
+# Build outputs and temporary files
+
+# Debug/Release directories
+Debug/
+Release/
+Simulation/
+
+# Object files
+*.o
+*.obj
+*.elf
+*.hex
+*.bin
+*.map
+*.lst
+
+# Dependency files
+*.d
+*.dep
+
+# Tasking compiler outputs
+*.abs
+*.out
+*.lnk
+
+# MDF files (may contain debug session info)
+*.mdf
+
+# Preprocessor output
+*.i
+*.ii
+*.s
+*.asm
+
+# Archive files
+*.a
+*.lib
+
+# AURIX specific
+*.bmhd
+
+# IDE and tool specific files
+# VS Code
+.vscode/
+*.code-workspace
+
+# Eclipse/Hightec
+.settings/
+.project
+.cproject
+*.launch.bak
+.metadata/
+
+# JetBrains IDEs
+.idea/
+*.iml
+
+# Backup files
+*.bak
+*.old
+*.backup
+*~
+
+# Log files
+*.log
+
+# OS generated files
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.stackdump
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+.directory
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Optional: Libraries (uncomment if you want to exclude)
+# libraries/
+
+# Keep important configuration files
+!*.lsl
+!*.launch
+!*.bat
