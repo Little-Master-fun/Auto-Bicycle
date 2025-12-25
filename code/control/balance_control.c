@@ -1,6 +1,7 @@
 /* balance_control.c */
 #include "balance_control.h"
 #include "driver_imu.h"
+#include "driver_odrive.h"
 #include <string.h>
 
 #define BALANCE_IMU_SCALE              (0.35f)
@@ -51,14 +52,14 @@ static AnglePID_t angle_pid =
 {
     1.0f, 0.0f, 0.0f,
     0.0f, 0.0f,
-    10000.0f, 100.0f
+    50.0f, 100.0f  // 降低积分限幅，防止积分饱和
 };
 
 static AngularVelocityPID_t velocity_pid =
 {
     -9.8f, 0.10f, 0.0f,
     0.0f, 0.0f,
-    10000.0f, 100.0f
+    30.0f, 100.0f  // 降低积分限幅，防止积分饱和导致输出卡死
 };
 
 static float target_angle = 0.35f;
@@ -79,15 +80,30 @@ static float pid_update(float error, float *integral, float *last_error,
 {
     float p_term = kp * error;
 
-    *integral += error * dt;
-    *integral = constrain_float(*integral, -max_integral, max_integral);
-    float i_term = ki * (*integral);
-
+    // 计算微分项
     float derivative = (error - *last_error) / dt;
     *last_error = error;
     float d_term = kd * derivative;
 
-    return constrain_float(p_term + i_term + d_term, -output_limit, output_limit);
+    // 先计算不含积分项的输出
+    float output_without_integral = p_term + d_term;
+    
+    // 抗积分饱和：只有当输出未饱和或积分项能减小输出时才累积
+    float tentative_output = output_without_integral + ki * (*integral);
+    uint8 output_saturated = (tentative_output > output_limit) || (tentative_output < -output_limit);
+    uint8 integral_helpful = (tentative_output > output_limit && error < 0) || 
+                           (tentative_output < -output_limit && error > 0);
+    
+    if (!output_saturated || integral_helpful)
+    {
+        *integral += error * dt;
+        *integral = constrain_float(*integral, -max_integral, max_integral);
+    }
+    
+    float i_term = ki * (*integral);
+    float output = p_term + i_term + d_term;
+
+    return constrain_float(output, -output_limit, output_limit);
 }
 
 static float low_pass_filter(LowPassFilter_t *lpf, float input)
@@ -142,7 +158,28 @@ static void velocity_loop_control(void)
                                              velocity_pid.max_integral,
                                              velocity_pid.output_limit);
 
+    // 输出限幅到 [-3, 3]
     control_output = -constrain_float(target_angular_acceleration, -3.0f, 3.0f);
+    
+    // 发送力矩到ODrive动量轮
+    odrive_set_torque(control_output);
+    
+    // 额外的安全措施：如果输出持续饱和且误差不减小，重置积分项
+    static uint8 saturation_counter = 0;
+    if ((control_output >= 2.9f || control_output <= -2.9f) && 
+        (velocity_error * control_output) > 0)  // 误差和输出同号，说明没在纠正
+    {
+        saturation_counter++;
+        if (saturation_counter > 100)  // 持续饱和500ms (100 * 5ms)
+        {
+            velocity_pid.integral *= 0.5f;  // 衰减积分项而不是清零
+            saturation_counter = 50;  // 重置计数器到一半
+        }
+    }
+    else
+    {
+        saturation_counter = 0;
+    }
 }
 
 void balance_control_init(void)
@@ -158,6 +195,9 @@ void balance_control_init(void)
     target_angular_velocity = 0.0f;
     target_angular_acceleration = 0.0f;
     control_output = 0.0f;
+    
+    // 确保ODrive初始状态为停止
+    odrive_stop();
 }
 
 void balance_control_update_5ms_isr(void)

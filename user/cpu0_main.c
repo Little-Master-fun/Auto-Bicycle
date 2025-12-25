@@ -36,6 +36,7 @@
 #include "driver_imu.h"
 #include "driver_servo.h"
 #include "driver_motor.h"
+#include "driver_odrive.h"
 #include "balance_control.h"
 #include "ui_control.h"
 
@@ -57,6 +58,7 @@ int core0_main(void)
     // 硬件驱动初始化
     servo_init(90.0f);              // 初始化舵机（中心位置）
     motor_init();                   // 初始化电机（停止状态）
+    odrive_init();                  // 初始化ODrive动量轮
     
     // 传感器和控制初始化
     yis_init();                     // 初始化IMU
