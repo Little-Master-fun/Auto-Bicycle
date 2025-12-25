@@ -39,6 +39,10 @@
 #include "balance_control.h"
 #include "ui_control.h"
 
+// 外部变量声明
+extern uint8 system_enable;
+extern uint8 param_index;
+
 // 对于TC系列默认是不支持中断嵌套的，希望支持中断嵌套需要在中断内使用 interrupt_global_enable(0); 来开启中断嵌套
 // 简单点说实际上进入中断后TC系列的硬件自动调用了 interrupt_global_disable(); 来拒绝响应任何的中断，因此需要我们自己手动调用 interrupt_global_enable(0); 来开启中断的响应。
 
@@ -60,7 +64,11 @@ IFX_INTERRUPT(cc60_pit_ch0_isr, CCU6_0_CH0_INT_VECTAB_NUM, CCU6_0_CH0_ISR_PRIORI
     ui_data.angular_velocity = balance_state.roll_rate_deg_s;
     ui_data.control_output = balance_state.control_output;
     ui_data.target_angle = balance_state.target_angle;
-    ui_data.system_status = 0;  // 0=运行中
+    ui_data.system_status = system_enable ? 0 : 1;  // 0=运行，1=停止
+    
+    // 获取PID参数
+    balance_control_get_pid_params(&ui_data.angle_kp, &ui_data.velocity_kp, &ui_data.velocity_ki);
+    ui_data.selected_param = param_index;
     
     ui_control_update(&ui_data);
 }

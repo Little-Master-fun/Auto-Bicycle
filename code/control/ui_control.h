@@ -34,6 +34,11 @@ typedef struct {
     float control_output;       // 控制输出（力矩）
     uint8 system_status;        // 系统状态：0=运行，1=停止
     float target_angle;         // 目标角度（度）
+    // PID参数
+    float angle_kp;             // 角度环Kp
+    float velocity_kp;          // 速度环Kp
+    float velocity_ki;          // 速度环Ki
+    uint8 selected_param;       // 当前选中的参数（0=角度Kp, 1=速度Kp, 2=速度Ki）
 } ui_display_data_t;
 
 // ========== 外部变量声明 ==========

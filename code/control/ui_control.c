@@ -102,8 +102,8 @@ void ui_control_update(const ui_display_data_t *data)
 {
     uint32 current_time = system_getval_ms();
 
-    // 检查是否到达更新间隔
-    if ((current_time - last_display_update) < UI_UPDATE_INTERVAL_MS) {
+    // 检查是否到达更新间隔（第一次调用时强制更新）
+    if (last_display_update != 0 && (current_time - last_display_update) < UI_UPDATE_INTERVAL_MS) {
         return;
     }
 
@@ -112,61 +112,84 @@ void ui_control_update(const ui_display_data_t *data)
     // 清空屏幕
     ips200_clear();
 
-    // 显示标题
-    ips200_set_color(RGB565_WHITE, RGB565_BLACK);
-    ui_safe_show_string(40, UI_TITLE_Y, "Bike Balance");
-
-    // 初始化显示位置
-    uint16 current_y = UI_DATA_START_Y;
-
-    // ========== 显示目标角度 ==========
-    if (current_y < ips200_height_max) {
-        ui_safe_show_string(UI_COL1_X, current_y, "Target:");
-        ui_safe_show_float(UI_COL2_X, current_y, data->target_angle, 2, 2);
-        ui_safe_show_string(UI_COL3_X, current_y, "deg");
-        current_y += UI_LINE_HEIGHT;
-    }
-
-    // ========== 显示当前角度 ==========
-    if (current_y < ips200_height_max) {
-        ui_safe_show_string(UI_COL1_X, current_y, "Angle:");
-        ui_safe_show_float(UI_COL2_X, current_y, data->angle, 3, 2);
-        ui_safe_show_string(UI_COL3_X, current_y, "deg");
-        current_y += UI_LINE_HEIGHT;
-    }
-
-    // ========== 显示角速度 ==========
-    if (current_y < ips200_height_max) {
-        ui_safe_show_string(UI_COL1_X, current_y, "Rate:");
-        ui_safe_show_float(UI_COL2_X, current_y, data->angular_velocity, 3, 2);
-        ui_safe_show_string(UI_COL3_X, current_y, "deg/s");
-        current_y += UI_LINE_HEIGHT;
-    }
-
-    // ========== 显示控制输出 ==========
-    if (current_y < ips200_height_max) {
-        ui_safe_show_string(UI_COL1_X, current_y, "Output:");
-        ui_safe_show_float(UI_COL2_X, current_y, data->control_output, 2, 4);
-        ui_safe_show_string(UI_COL3_X, current_y, "Nm");
-        current_y += UI_LINE_HEIGHT;
-    }
+    // ========== 显示标题 ==========
+    ips200_set_color(RGB565_CYAN, RGB565_BLACK);
+    ips200_show_string(35, 2, "Balance Ctrl");
+    
+    uint16 y = 20;
 
     // ========== 显示系统状态 ==========
-    if (current_y < ips200_height_max) {
-        ui_safe_show_string(UI_COL1_X, current_y, "Status:");
-        
-        if (data->system_status == 0) {
-            // 运行状态 - 绿色显示
-            ips200_set_color(RGB565_GREEN, RGB565_BLACK);
-            ui_safe_show_string(UI_COL2_X, current_y, "RUN ");
-        } else {
-            // 停止状态 - 红色显示
-            ips200_set_color(RGB565_RED, RGB565_BLACK);
-            ui_safe_show_string(UI_COL2_X, current_y, "STOP");
-        }
-        
-        // 恢复默认颜色
-        ips200_set_color(RGB565_WHITE, RGB565_BLACK);
-        current_y += UI_LINE_HEIGHT;
+    ips200_set_color(RGB565_WHITE, RGB565_BLACK);
+    ips200_show_string(5, y, "Status:");
+    if (data->system_status == 0) {
+        ips200_set_color(RGB565_GREEN, RGB565_BLACK);
+        ips200_show_string(60, y, "RUN ");
+    } else {
+        ips200_set_color(RGB565_RED, RGB565_BLACK);
+        ips200_show_string(60, y, "STOP");
     }
+    y += 18;
+
+    // ========== 显示实时数据 ==========
+    ips200_set_color(RGB565_WHITE, RGB565_BLACK);
+    ips200_show_string(5, y, "Ang:");
+    ips200_show_float(45, y, data->angle, 2, 2);
+    ips200_show_string(100, y, "deg");
+    y += 16;
+
+    ips200_show_string(5, y, "Rate:");
+    ips200_show_float(45, y, data->angular_velocity, 3, 1);
+    y += 16;
+
+    ips200_show_string(5, y, "Out:");
+    ips200_show_float(45, y, data->control_output, 1, 3);
+    ips200_show_string(100, y, "Nm");
+    y += 18;
+
+    // ========== 显示PID参数 ==========
+    ips200_set_color(RGB565_YELLOW, RGB565_BLACK);
+    ips200_show_string(5, y, "-- PID Params --");
+    y += 16;
+
+    // 角度Kp
+    if (data->selected_param == 0) {
+        ips200_set_color(RGB565_GREEN, RGB565_BLACK);  // 选中显示绿色
+        ips200_show_string(5, y, ">");
+    } else {
+        ips200_set_color(RGB565_WHITE, RGB565_BLACK);
+        ips200_show_string(5, y, " ");
+    }
+    ips200_show_string(15, y, "AKp:");
+    ips200_show_float(50, y, data->angle_kp, 1, 2);
+    y += 16;
+
+    // 速度Kp
+    if (data->selected_param == 1) {
+        ips200_set_color(RGB565_GREEN, RGB565_BLACK);
+        ips200_show_string(5, y, ">");
+    } else {
+        ips200_set_color(RGB565_WHITE, RGB565_BLACK);
+        ips200_show_string(5, y, " ");
+    }
+    ips200_show_string(15, y, "VKp:");
+    ips200_show_float(50, y, data->velocity_kp, 2, 2);
+    y += 16;
+
+    // 速度Ki
+    if (data->selected_param == 2) {
+        ips200_set_color(RGB565_GREEN, RGB565_BLACK);
+        ips200_show_string(5, y, ">");
+    } else {
+        ips200_set_color(RGB565_WHITE, RGB565_BLACK);
+        ips200_show_string(5, y, " ");
+    }
+    ips200_show_string(15, y, "VKi:");
+    ips200_show_float(50, y, data->velocity_ki, 1, 3);
+    y += 18;
+
+    // ========== 显示操作提示 ==========
+    ips200_set_color(RGB565_GRAY, RGB565_BLACK);
+    ips200_show_string(5, y, "K1:ON/OFF");
+    y += 14;
+    ips200_show_string(5, y, "K2:Select K3:+ K4:-");
 }

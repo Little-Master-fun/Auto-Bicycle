@@ -37,8 +37,14 @@
 #include "driver_servo.h"
 #include "driver_motor.h"
 #include "driver_odrive.h"
+#include "zf_device_key.h"        // 使用库的按键驱动
 #include "balance_control.h"
 #include "ui_control.h"
+
+// ========== 全局变量 ==========
+uint8 system_enable = 0;     // 系统使能标志（0=停止，1=运行）
+uint8 param_index = 0;       // 当前调节的参数索引（0=角度Kp, 1=速度Kp, 2=速度Ki）
+static const char* param_names[] = {"Angle Kp", "Velocity Kp", "Velocity Ki"};
 
 
 #pragma section all "cpu0_dsram"
@@ -56,9 +62,11 @@ int core0_main(void)
     debug_init();                   // ��ʼ��Ĭ�ϵ��Դ���
     
     // 硬件驱动初始化
+    gpio_init(P20_9, GPO, GPIO_LOW, GPO_PUSH_PULL);  // LED指示灯初始化
     servo_init(90.0f);              // 初始化舵机（中心位置）
     motor_init();                   // 初始化电机（停止状态）
     odrive_init();                  // 初始化ODrive动量轮
+    key_init(10);                   // 初始化按键（10ms扫描周期）
     
     // 传感器和控制初始化
     yis_init();                     // 初始化IMU
@@ -82,13 +90,65 @@ int core0_main(void)
     
     while (TRUE)
     {
-        // 示例：可以在这里添加舵机和电机控制代码
-        // 例如：
-        // servo_set_angle(90.0f);      // 设置舵机角度到90度
-        // motor_forward(50);           // 电机以50%速度前进
-        // motor_stop();                // 停止电机
+        // 按键扫描（库会自动根据period处理时序）
+        key_scanner();
         
-        system_delay_ms(10);
+        // 按键事件处理
+        if (key_get_state(KEY_1) == KEY_SHORT_PRESS) {
+            // K1: 启动/停止系统
+            key_clear_state(KEY_1);  // 清除按键状态
+            system_enable = !system_enable;
+            balance_control_set_enable(system_enable);  // 设置控制使能
+            if (system_enable) {
+                printf("System ENABLED\r\n");
+                gpio_high(P20_9);  // LED点亮表示运行
+            } else {
+                printf("System STOPPED\r\n");
+                gpio_low(P20_9);   // LED熄灭表示停止
+            }
+        }
+        
+        if (key_get_state(KEY_2) == KEY_SHORT_PRESS) {
+            // K2: 切换调节参数
+            key_clear_state(KEY_2);
+            param_index = (param_index + 1) % 3;
+            float angle_kp, vel_kp, vel_ki;
+            balance_control_get_pid_params(&angle_kp, &vel_kp, &vel_ki);
+            printf("\r\n=== Select: %s ===\r\n", param_names[param_index]);
+            printf("Angle Kp=%.3f, Vel Kp=%.3f, Vel Ki=%.3f\r\n", angle_kp, vel_kp, vel_ki);
+        }
+        
+        if (key_get_state(KEY_3) == KEY_SHORT_PRESS) {
+            // K3: 增大当前参数
+            key_clear_state(KEY_3);
+            float angle_kp, vel_kp, vel_ki;
+            if (param_index == 0) {
+                balance_control_adjust_angle_kp(0.1f);   // 角度Kp步长0.1
+            } else if (param_index == 1) {
+                balance_control_adjust_velocity_kp(-0.1f);  // 速度Kp步长0.5（负数，所以减去负值=增大绝对值）
+            } else {
+                balance_control_adjust_velocity_ki(0.001f);  // 速度Ki步长0.01
+            }
+            balance_control_get_pid_params(&angle_kp, &vel_kp, &vel_ki);
+            printf("+ %s: Kp=%.3f, Vel Kp=%.3f, Ki=%.3f\r\n", param_names[param_index], angle_kp, vel_kp, vel_ki);
+        }
+        
+        if (key_get_state(KEY_4) == KEY_SHORT_PRESS) {
+            // K4: 减小当前参数
+            key_clear_state(KEY_4);
+            float angle_kp, vel_kp, vel_ki;
+            if (param_index == 0) {
+                balance_control_adjust_angle_kp(-0.1f);  // 角度Kp步长0.1
+            } else if (param_index == 1) {
+                balance_control_adjust_velocity_kp(0.1f);   // 速度Kp步长0.5（负数，所以加正值=减小绝对值）
+            } else {
+                balance_control_adjust_velocity_ki(-0.001f); // 速度Ki步长0.01
+            }
+            balance_control_get_pid_params(&angle_kp, &vel_kp, &vel_ki);
+            printf("- %s: Kp=%.3f, Vel Kp=%.3f, Ki=%.3f\r\n", param_names[param_index], angle_kp, vel_kp, vel_ki);
+        }
+        
+        system_delay_ms(10);  // 10ms扫描周期
     }
 }
 #pragma section all restore
