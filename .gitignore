@@ -46,9 +46,8 @@ Simulation/
 *.code-workspace
 
 # Eclipse/Hightec
-.settings/
-.project
-.cproject
+
+
 *.launch.bak
 .metadata/
 
